@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';
@@ -26,7 +27,8 @@ const formatTime = (date: Date) =>
   date.toLocaleTimeString('es-GT', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'America/Guatemala'
   });
 
 // Get all projects
@@ -720,6 +722,24 @@ app.get('/api/health', async (_req, res) => {
     });
   }
 });
+
+// ==============================
+// Serve React frontend (production-like)
+// ==============================
+
+const distPath = path.join(__dirname, '../dist');
+
+app.use(express.static(distPath));
+
+// Fallback para React Router (SPA)
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API route not found' });
+  }
+
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
