@@ -126,7 +126,7 @@ export default function WorklogSummary() {
                           {item.worklogs.map((log) => (
                             <div key={log.id} className="worklog-entry">
                               <span className="worklog-date">
-                                {new Date(log.started).toLocaleDateString('es-ES')}
+                                {new Date(log.started).toLocaleDateString('es-GT')}
                               </span>
                               <span className="worklog-time">{formatHours(log.timeSpentSeconds)}</span>
                             </div>
