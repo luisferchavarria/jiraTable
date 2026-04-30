@@ -10,6 +10,7 @@ interface DailyData {
   worklogs: {
     issueKey: string
     summary: string
+    status?: string
     timeSpentSeconds: number
     started: string
     from: string
@@ -251,6 +252,9 @@ export default function WeeklyTimesheet() {
                               <span className="worklog-range">
                                 {log.from} – {log.to}
                               </span>
+                              {log.status && (
+                                <span className="worklog-status">{log.status}</span>
+                              )}
                             </div>
 
                             <span className="worklog-time">

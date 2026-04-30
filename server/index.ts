@@ -171,7 +171,7 @@ app.get('/api/worklogs/daily', async (req, res) => {
     const issuesResponse = await jiraApi.get('/search/jql', {
       params: {
         jql,
-        fields: 'summary,worklog',
+        fields: 'summary,worklog,status',
         maxResults: 1000
       }
     });
@@ -221,6 +221,7 @@ app.get('/api/worklogs/daily', async (req, res) => {
                 dailyTotals[dateStr].worklogs.push({
                   issueKey: issue.key,
                   summary: issue.fields.summary,
+                  status: issue.fields.status?.name,
                   timeSpentSeconds: worklog.timeSpentSeconds,
                   started: worklog.started,
                   from: formatTime(startTime),
@@ -315,7 +316,7 @@ app.get('/api/worklogs', async (req, res) => {
     const issuesResponse = await jiraApi.get('/search/jql', {
       params: {
         jql,
-        fields: 'summary,worklog',
+        fields: 'summary,worklog,status',
         maxResults: 1000
       }
     });
