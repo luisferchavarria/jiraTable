@@ -154,6 +154,14 @@ export default function WeeklyTimesheet() {
             Hoy
           </button>
         )}
+        <button
+          className="nav-btn"
+          onClick={fetchTimesheet}
+          disabled={loading}
+          title="Actualizar"
+        >
+          🔄
+        </button>
       </div>
 
 

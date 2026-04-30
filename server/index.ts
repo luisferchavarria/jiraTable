@@ -123,7 +123,7 @@ app.put('/api/issues/:issueKey', async (req, res) => {
 });
 
 const toDateKey = (date: Date) =>
-  date.toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+  date.toLocaleDateString('sv-SE', { timeZone: 'America/Guatemala' }); // YYYY-MM-DD en hora Guatemala
 
 // Get worklogs grouped by day for weekly timesheet
 app.get('/api/worklogs/daily', async (req, res) => {
@@ -171,7 +171,7 @@ app.get('/api/worklogs/daily', async (req, res) => {
     const issuesResponse = await jiraApi.get('/search/jql', {
       params: {
         jql,
-        fields: 'summary,worklog,status',
+        fields: 'summary,status',
         maxResults: 1000
       }
     });
@@ -183,6 +183,7 @@ app.get('/api/worklogs/daily', async (req, res) => {
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
+      date.setHours(12, 0, 0, 0); // mediodia para evitar shift de TZ al formatear
       // const dateStr = date.toISOString().split('T')[0];
       const dateStr = toDateKey(date);
       const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -197,45 +198,43 @@ app.get('/api/worklogs/daily', async (req, res) => {
     }
 
     let totalSeconds = 0;
+    const issues = issuesResponse.data.issues || [];
 
-    // Process each issue's worklogs
-    for (const issue of issuesResponse.data.issues || []) {
+    // Fetch worklogs en paralelo (el search no pide el campo worklog porque
+    // hace que Jira los compute on-demand y dispara la latencia ~10x).
+    await Promise.all(issues.map(async (issue: any) => {
       try {
         const worklogResponse = await jiraApi.get(`/issue/${issue.key}/worklog`);
         const worklogs = worklogResponse.data.worklogs || [];
 
         for (const worklog of worklogs) {
-          if (worklog.author.accountId === accountId) {
-            const worklogDate = new Date(worklog.started);
-            if (worklogDate >= startDate && worklogDate <= endDate) {
-              // const dateStr = worklogDate.toISOString().split('T')[0];
-              const dateStr = toDateKey(worklogDate);
+          if (worklog.author.accountId !== accountId) continue;
 
-              if (dailyTotals[dateStr]) {
-                dailyTotals[dateStr].totalSeconds += worklog.timeSpentSeconds;
-                const startTime = new Date(worklog.started);
-                const endTime = new Date(
-                  startTime.getTime() + worklog.timeSpentSeconds * 1000
-                );
+          const worklogDate = new Date(worklog.started);
+          const dateStr = toDateKey(worklogDate);
+          if (!dailyTotals[dateStr]) continue;
 
-                dailyTotals[dateStr].worklogs.push({
-                  issueKey: issue.key,
-                  summary: issue.fields.summary,
-                  status: issue.fields.status?.name,
-                  timeSpentSeconds: worklog.timeSpentSeconds,
-                  started: worklog.started,
-                  from: formatTime(startTime),
-                  to: formatTime(endTime)
-                });
-                totalSeconds += worklog.timeSpentSeconds;
-              }
-            }
-          }
+          const startTime = worklogDate;
+          const endTime = new Date(
+            startTime.getTime() + worklog.timeSpentSeconds * 1000
+          );
+
+          dailyTotals[dateStr].totalSeconds += worklog.timeSpentSeconds;
+          dailyTotals[dateStr].worklogs.push({
+            issueKey: issue.key,
+            summary: issue.fields.summary,
+            status: issue.fields.status?.name,
+            timeSpentSeconds: worklog.timeSpentSeconds,
+            started: worklog.started,
+            from: formatTime(startTime),
+            to: formatTime(endTime)
+          });
+          totalSeconds += worklog.timeSpentSeconds;
         }
       } catch (err) {
         console.error(`Error fetching worklogs for ${issue.key}:`, err);
       }
-    }
+    }));
 
     Object.values(dailyTotals).forEach(day => {
       day.worklogs.sort((a, b) => {
